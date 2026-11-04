@@ -2,6 +2,8 @@
 
 **Git it together at GitWorld**
 
+**Play:** https://gitworld-gold.vercel.app · try [samsagewize/rain-world](https://gitworld-gold.vercel.app/?repo=samsagewize/rain-world) or [vercel/next.js](https://gitworld-gold.vercel.app/gh/vercel/next.js)
+
 GitWorld turns any public GitHub repo into a pixel town you can walk around as a cat. Folders are buildings, files are things you can open, the README is a sign out front, and other people walk around with you in real time.
 
 It is built from the engine, pixel style, and cat generator of [Rain's World](https://github.com/samsagewize/rain-world).
