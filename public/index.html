@@ -1,0 +1,143 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<base href="/">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="theme-color" content="#0d1020">
+<title>GitWorld · Git it together at GitWorld</title>
+<meta name="description" content="Git it together at GitWorld">
+<meta property="og:title" content="GitWorld">
+<meta property="og:description" content="Git it together at GitWorld">
+<meta property="og:type" content="website">
+<meta property="og:image" content="/assets/og.png">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="GitWorld">
+<meta name="twitter:description" content="Git it together at GitWorld">
+<link rel="icon" href="/assets/icon.png">
+<link rel="apple-touch-icon" href="/assets/icon.png">
+<link rel="stylesheet" href="/style.css">
+<link rel="stylesheet" href="/gitworld.css">
+</head>
+<body>
+<canvas id="game" aria-label="GitWorld"></canvas>
+
+<div id="hud">
+  <div id="title">GITWORLD</div>
+  <div id="buttons">
+    <button id="btnAuth" class="wide" title="Sign in with GitHub">SIGN IN</button>
+    <button id="btnChat" class="hidden" title="Chat (T)" aria-label="Chat">&#128172;</button>
+    <button id="btnPlaces" title="Places (M)" aria-label="Places">&#9776;</button>
+    <button id="btnRain" title="Rain on/off (R)" aria-label="Toggle rain">&#9730;</button>
+    <button id="btnSound" title="Music on/off (N)" aria-label="Toggle music">&#9835;<s></s></button>
+  </div>
+</div>
+
+<nav id="ghBar" aria-label="Breadcrumbs"><button id="ghHome" title="Back to the GitWorld plaza">&#8962; PLAZA</button><div id="ghCrumbs"></div><span id="ghPage"></span><span id="ghLive"></span></nav>
+
+<div id="toast" class="pixel-box hidden"></div>
+<div id="prompt" class="hidden"></div>
+
+<div id="dialog" class="pixel-box hidden" role="dialog" aria-modal="false" aria-labelledby="dlgTitle">
+  <button id="dlgClose" aria-label="Close">&times;</button>
+  <div id="dlgHead">
+    <canvas id="dlgIcon" width="16" height="16"></canvas>
+    <div><div id="dlgTag"></div><h2 id="dlgTitle"></h2></div>
+  </div>
+  <div id="dlgMedia"></div>
+  <p id="dlgBody"></p>
+  <div id="dlgLinks"></div>
+  <div id="dlgCredit"></div>
+</div>
+
+<div id="places" class="pixel-box hidden" role="dialog" aria-label="Places">
+  <button id="placesClose" aria-label="Close">&times;</button>
+  <h2>PLACES</h2>
+  <div id="placesList"></div>
+</div>
+
+<!-- title screen -->
+<div id="splash" class="hidden">
+  <div class="splashIn">
+    <canvas id="splashCats" width="96" height="24"></canvas>
+    <h1>GITWORLD</h1>
+    <p class="tag">Git it together at GitWorld</p>
+    <p class="sub">Walk through any public GitHub repo as a pixel cat. Folders are buildings, files are things you can open, and other people are walking around with you.</p>
+    <div class="splashBtns">
+      <button id="spGuest">EXPLORE AS GUEST</button>
+      <button id="spSignin" class="alt">SIGN IN WITH GITHUB</button>
+    </div>
+    <p id="spNote" class="note"></p>
+  </div>
+</div>
+
+<!-- repo picker -->
+<div id="ghPick" class="pixel-box panel hidden" role="dialog" aria-label="Open a repo">
+  <button class="pclose" data-close="ghPick" aria-label="Close">&times;</button>
+  <h2>GITHUB GATE</h2>
+  <p class="psub">Type any public repo, or paste a GitHub link.</p>
+  <form id="ghForm" autocomplete="off"><input id="ghInput" type="text" inputmode="url" autocapitalize="off" autocorrect="off" spellcheck="false" maxlength="200" placeholder="owner/repo" aria-label="owner/repo"><button type="submit">GO</button></form>
+  <div id="ghErr" class="perr" aria-live="polite"></div>
+  <h3>POPULAR</h3><div id="ghSuggest" class="plist"></div>
+  <h3 id="ghRecentH" class="hidden">RECENT</h3><div id="ghRecent" class="plist"></div>
+  <p id="ghRate" class="pnote"></p>
+</div>
+
+<!-- file viewer -->
+<div id="ghView" class="pixel-box panel big hidden" role="dialog" aria-label="File viewer">
+  <button class="pclose" data-close="ghView" aria-label="Close">&times;</button>
+  <div class="vhead"><div id="gvTag" class="ptag"></div><h2 id="gvTitle"></h2></div>
+  <div class="vlinks"><a id="gvGh" target="_blank" rel="noopener noreferrer">Open on GitHub</a><button id="gvCopy" class="alt">Copy link</button></div>
+  <div id="gvBody" class="vbody"></div>
+</div>
+
+<!-- reader (README, commits, info) -->
+<div id="ghRead" class="pixel-box panel big hidden" role="dialog" aria-label="Reader">
+  <button class="pclose" data-close="ghRead" aria-label="Close">&times;</button>
+  <div class="vhead"><div id="grTag" class="ptag"></div><h2 id="grTitle"></h2></div>
+  <div class="vlinks" id="grLinks"></div>
+  <div id="grBody" class="vbody md"></div>
+</div>
+
+<!-- onboarding -->
+<div id="onboard" class="pixel-box panel big hidden" role="dialog" aria-label="Set up your cat">
+  <button class="pclose" data-close="onboard" aria-label="Close">&times;</button>
+  <h2>WELCOME, <span id="obLogin"></span></h2>
+  <p id="obName" class="pnote"></p>
+  <h3>1 &middot; PICK YOUR CAT</h3>
+  <div id="obCats"></div>
+  <button id="obReroll" class="alt small">&#127922; Roll 3 new cats</button>
+  <h3>2 &middot; FEATURE YOUR REPOS <small>(public only, up to 6)</small></h3>
+  <div id="obRepos" class="plist"></div>
+  <div id="obErr" class="perr" aria-live="polite"></div>
+  <button id="obSave">JOIN GITWORLD</button>
+  <p class="pnote">We only ask GitHub for read:user. Your token stays on the server and is never sent to this page. Featured repos show up as buildings on Featured Island for everyone to visit.</p>
+</div>
+
+<!-- player card -->
+<div id="pCard" class="pixel-box panel hidden" role="dialog" aria-label="Player">
+  <button class="pclose" data-close="pCard" aria-label="Close">&times;</button>
+  <div class="pchead"><img id="pcAvatar" alt=""><div><h2 id="pcName"></h2><a id="pcLink" target="_blank" rel="noopener noreferrer">GitHub profile</a></div></div>
+  <div class="pcBtns"><button id="pcMute" class="alt">Mute</button><button id="pcBlock" class="alt">Block</button><button id="pcReport" class="warn">Report</button></div>
+  <div id="pcNote" class="pnote"></div>
+</div>
+
+<!-- chat -->
+<div id="chatBar" class="hidden">
+  <div id="chatLog" aria-live="polite"></div>
+  <form id="chatForm" autocomplete="off"><input id="chatInput" type="text" maxlength="120" placeholder="Say something (Enter)" aria-label="Chat message" enterkeyhint="send"><button type="submit">SEND</button></form>
+  <div id="emotes"><button data-e="wave">&#128075;</button><button data-e="heart">&#10084;</button><button data-e="star">&#11088;</button><button data-e="meow">MEOW</button><button data-e="lol">LOL</button><button data-e="ship">SHIP IT</button></div>
+</div>
+
+<div id="pad" aria-hidden="true">
+  <button data-dir="up" class="pb up">&#9650;</button>
+  <button data-dir="left" class="pb left">&#9664;</button>
+  <button data-dir="right" class="pb right">&#9654;</button>
+  <button data-dir="down" class="pb down">&#9660;</button>
+</div>
+<button id="btnA" aria-label="Action">A</button>
+
+<script src="/engine.js"></script>
+<script src="/gitworld.js"></script>
+</body>
+</html>

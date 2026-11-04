@@ -1,0 +1,122 @@
+/* GitWorld UI: dark futuristic, mint accent */
+:root{--acc:#3dffc0}
+#buttons button.wide{width:auto;padding:0 9px;font-family:"PS2P",monospace;font-size:8px;background:var(--acc);color:#0d1020}
+#buttons button.wide.me{background:var(--panel);color:var(--ink);display:flex;align-items:center;gap:6px}
+#buttons button.wide.me img{width:20px;height:20px;image-rendering:pixelated;border:2px solid var(--ink)}
+#title small{display:block;font-size:6px;color:#8a95b8;margin-top:4px;letter-spacing:0;text-shadow:none}
+#ghBar{position:fixed;top:calc(env(safe-area-inset-top) + 56px);left:12px;right:12px;z-index:5;display:flex;align-items:center;gap:6px;font-size:8px;overflow-x:auto;white-space:nowrap;scrollbar-width:none;-webkit-overflow-scrolling:touch;touch-action:pan-x}
+#ghBar::-webkit-scrollbar{display:none}
+#ghBar button{font-size:8px;background:#0b0e1ccc;border:2px solid var(--line);padding:6px 7px;color:var(--ink);flex:none}
+#ghBar button:hover,#ghBar button:focus-visible{border-color:var(--acc)}
+#ghHome{border-color:var(--acc)!important;color:var(--acc)!important}
+#ghCrumbs{display:flex;gap:4px;align-items:center}
+#ghCrumbs i{color:#5c66a8;font-style:normal}
+#ghCrumbs button.cur{border-color:var(--ink);background:#20263dcc}
+#ghPage,#ghLive{flex:none;color:#8a95b8;padding:6px 4px}
+#ghLive{color:var(--acc)}
+#toast{top:calc(env(safe-area-inset-top) + 92px)}
+body.touch #toast{top:calc(env(safe-area-inset-top) + 190px)}
+.panel{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);width:min(94vw,520px);max-height:88vh;max-height:88dvh;overflow:auto;padding:16px;z-index:14;-webkit-overflow-scrolling:touch;touch-action:pan-y;user-select:text;-webkit-user-select:text}
+.panel.big{width:min(96vw,860px);height:min(88vh,900px);height:min(88dvh,900px);display:flex;flex-direction:column}
+#onboard.big{height:auto}
+.panel h2{font-size:12px;margin:0 30px 8px 0;line-height:1.6;font-weight:normal;color:var(--acc);word-break:break-all}
+.panel h3{font-size:8px;color:#8a95b8;margin:14px 0 8px;font-weight:normal;letter-spacing:1px}
+.panel h3 small{font-size:7px}
+.pclose{position:absolute;top:6px;right:8px;background:none;border:0;font-size:24px;font-family:system-ui,sans-serif;padding:4px 10px;color:var(--ink);z-index:2}
+.psub,.pnote{font-size:8px;line-height:1.8;color:#cfd8ee;margin:0 0 10px}
+.pnote{color:#8a95b8;font-size:7px;margin-top:12px}
+.ptag{font-size:7px;color:var(--acc);margin-bottom:6px;letter-spacing:1px;word-break:break-all}
+.perr{font-size:8px;line-height:1.7;color:#ff8fa3;min-height:4px;margin:6px 0}
+#ghForm,#chatForm{display:flex;gap:8px}
+#ghForm input,#chatForm input{flex:1;min-width:0;font-family:"PS2P",monospace;font-size:16px;padding:10px;background:#0b0e1c;color:var(--ink);border:3px solid var(--ink);border-radius:0;outline:none;user-select:text;-webkit-user-select:text}
+@media (min-width:681px){#ghForm input,#chatForm input{font-size:10px}}
+#ghForm input:focus,#chatForm input:focus{border-color:var(--acc)}
+#ghForm button,#chatForm button,#obSave{font-family:"PS2P",monospace;font-size:10px;padding:0 14px;background:var(--acc);color:#0d1020;border:3px solid var(--ink);box-shadow:3px 3px 0 #000}
+#obSave{display:block;width:100%;padding:14px;margin-top:14px;font-size:11px}
+.plist{display:grid;gap:7px}
+.plist button,.plist label{display:block;text-align:left;background:#0b0e1c;border:3px solid var(--line);padding:9px 10px;font-size:8px;line-height:1.6;color:var(--ink);font-family:"PS2P",monospace;cursor:pointer;word-break:break-word}
+.plist button:hover,.plist button:focus-visible,.plist label:hover{border-color:var(--acc)}
+.plist small{display:block;color:#8a95b8;font-size:7px;margin-top:3px}
+.plist label.on{border-color:var(--acc);background:#0f2620}
+.plist label input{margin:0 8px 0 0;vertical-align:middle;accent-color:#3dffc0}
+.vhead{flex:none}
+.vlinks{display:flex;gap:8px;flex-wrap:wrap;margin:4px 0 10px;flex:none}
+.vlinks a,.vlinks button{font-size:8px;text-decoration:none;color:#0d1020;background:var(--acc);border:3px solid var(--ink);box-shadow:3px 3px 0 #000;padding:8px 9px;font-family:"PS2P",monospace}
+.vlinks button.alt,.vlinks a.alt{background:var(--ink)}
+.vbody{flex:1;min-height:0;overflow:auto;background:#070912;border:3px solid var(--line);-webkit-overflow-scrolling:touch;touch-action:pan-x pan-y}
+.code{display:flex;min-width:max-content;font:12px/1.55 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+.code pre{margin:0;padding:10px 12px;white-space:pre;tab-size:4}
+.code .ln{color:#4a5390;text-align:right;user-select:none;-webkit-user-select:none;border-right:2px solid #1b2140;position:sticky;left:0;background:#070912}
+.code .src{color:#e8f0ff}
+.vmsg{padding:18px;font-size:9px;line-height:1.9;color:#cfd8ee}
+.vimg{padding:16px;text-align:center}
+.vimg img{max-width:100%;max-height:60vh;image-rendering:pixelated;background:repeating-conic-gradient(#20263d 0 25%,#171c2e 0 50%) 50%/16px 16px;border:3px solid var(--line)}
+.md{padding:14px 16px;font:14px/1.65 system-ui,-apple-system,Segoe UI,sans-serif;color:#dfe6f7}
+.md h1,.md h2,.md h3,.md h4{font-family:"PS2P",monospace;font-weight:normal;color:var(--acc);line-height:1.6;margin:18px 0 8px;word-break:break-word}
+.md h1{font-size:14px}.md h2{font-size:12px}.md h3{font-size:10px}.md h4{font-size:9px}
+.md p{margin:8px 0}
+.md a{color:var(--acc)}
+.md code{font:12px ui-monospace,Menlo,monospace;background:#151a2e;padding:1px 4px}
+.md pre{background:#0b0e1c;border:2px solid var(--line);padding:10px;overflow:auto;font:12px/1.5 ui-monospace,Menlo,monospace}
+.md pre code{background:none;padding:0}
+.md .li{margin:3px 0 3px 14px;text-indent:-12px}
+.md blockquote{margin:8px 0;padding-left:10px;border-left:3px solid var(--mint2);color:#aab4d0}
+.md hr{border:0;border-top:2px dashed var(--line);margin:14px 0}
+.md .img{color:#8a95b8;font-size:12px}
+.commit{border-bottom:2px solid #151a2e;padding:10px 0}
+.commit b{display:block;font-weight:600;color:var(--ink);word-break:break-word}
+.commit small{color:#8a95b8;font-size:12px}
+/* title screen */
+#splash{position:fixed;inset:0;z-index:30;display:flex;align-items:center;justify-content:center;background:radial-gradient(circle at 50% 40%,#0f2a2acc,#0d1020ee 60%);padding:20px}
+.splashIn{text-align:center;max-width:560px}
+#splashCats{width:288px;height:72px;image-rendering:pixelated;display:block;margin:0 auto 10px}
+#splash h1{font-size:clamp(28px,9vw,54px);margin:0;color:var(--acc);text-shadow:4px 4px 0 #000,0 0 18px rgba(61,255,192,.55);letter-spacing:2px;font-weight:normal}
+#splash .tag{font-size:clamp(10px,2.8vw,14px);color:var(--ink);margin:16px 0 14px;line-height:1.6}
+#splash .sub{font-size:8px;line-height:2;color:#aab4d0;margin:0 auto 20px;max-width:440px}
+.splashBtns{display:flex;gap:12px;justify-content:center;flex-wrap:wrap}
+.splashBtns button{font-family:"PS2P",monospace;font-size:10px;padding:14px 16px;background:var(--acc);color:#0d1020;border:4px solid var(--ink);box-shadow:4px 4px 0 #000}
+.splashBtns button.alt{background:var(--ink)}
+.splashBtns button:active,.vlinks a:active,.vlinks button:active{transform:translate(2px,2px);box-shadow:1px 1px 0 #000}
+#splash .note{font-size:7px;color:#8a95b8;margin-top:16px;line-height:1.8}
+/* onboarding */
+#obCats{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+#obCats button{background:#0b0e1c;border:3px solid var(--line);padding:6px;font-family:"PS2P",monospace;font-size:7px;line-height:1.6;color:var(--ink)}
+#obCats button.on{border-color:var(--acc);box-shadow:0 0 0 3px #3dffc055}
+#obCats canvas{width:100%;aspect-ratio:1/1;image-rendering:pixelated;display:block;margin-bottom:6px}
+button.small{font-family:"PS2P",monospace;font-size:8px;padding:8px 10px;margin-top:8px;background:var(--ink);color:#0d1020;border:3px solid var(--ink)}
+#obRepos{max-height:34vh;overflow:auto}
+/* player card */
+.pchead{display:flex;gap:12px;align-items:center}
+.pchead img{width:56px;height:56px;border:3px solid var(--ink);image-rendering:pixelated;background:#0b0e1c}
+.pchead a{font-size:8px;color:var(--acc)}
+.pcBtns{display:flex;gap:8px;margin-top:14px;flex-wrap:wrap}
+.pcBtns button{font-family:"PS2P",monospace;font-size:8px;padding:10px;border:3px solid var(--ink);background:var(--ink);color:#0d1020;box-shadow:3px 3px 0 #000}
+.pcBtns button.on{background:var(--acc)}
+.pcBtns button.warn{background:#ff8fa3}
+/* chat */
+#chatBar{position:fixed;right:12px;bottom:calc(env(safe-area-inset-bottom) + 12px);width:min(380px,60vw);z-index:9;display:flex;flex-direction:column;gap:6px}
+#chatLog{max-height:150px;overflow:auto;font:12px/1.45 system-ui,sans-serif;display:flex;flex-direction:column;gap:2px;pointer-events:auto;user-select:text;-webkit-user-select:text;touch-action:pan-y}
+#chatLog div{background:#0b0e1cd0;padding:3px 7px;border-left:3px solid var(--mint2);word-break:break-word}
+#chatLog b{color:var(--acc);font-weight:600;margin-right:6px;cursor:pointer}
+#chatLog .sys{border-left-color:#5c66a8;color:#aab4d0}
+#chatForm input{font-size:16px;padding:8px}
+#chatForm button{font-size:8px;padding:0 10px}
+#emotes{display:flex;gap:5px;flex-wrap:wrap}
+#emotes button{font-family:"PS2P",monospace;font-size:8px;padding:6px 7px;background:#0b0e1cd0;border:2px solid var(--line);color:var(--ink)}
+#emotes button:hover{border-color:var(--acc)}
+body.touch #chatBar{left:12px;right:12px;width:auto;bottom:auto;top:calc(env(safe-area-inset-top) + 96px)}
+body.touch #chatLog{max-height:84px}
+body.touch #chatBar.collapsed #chatForm,body.touch #chatBar.collapsed #emotes{display:none}
+#chatBar.collapsed #chatLog{opacity:.85}
+body.ghp #pad,body.ghp #btnA,body.ghp #prompt,body.ghp #dialog{display:none!important}
+body.splash #hud,body.splash #pad,body.splash #btnA,body.splash #prompt,body.splash #ghBar,body.splash #chatBar{display:none!important}
+@media (max-width:680px){
+  .panel{left:2vw;right:2vw;width:auto;top:calc(env(safe-area-inset-top) + 8px);transform:none;max-height:calc(100dvh - env(safe-area-inset-top) - env(safe-area-inset-bottom) - 16px);padding:14px 12px}
+  .panel.big{height:calc(100dvh - env(safe-area-inset-top) - env(safe-area-inset-bottom) - 16px);width:auto}
+  #onboard.big{height:auto}
+  .code{font-size:11px}
+  #title{font-size:10px}
+}
+
+#obRepos{font-size:8px;line-height:1.6;color:#8a95b8}
+#onboard h2 span{word-break:break-all}

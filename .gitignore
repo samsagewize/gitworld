@@ -1,0 +1,9 @@
+node_modules
+.next
+.vercel
+.env*
+*.png
+!public/assets/*.png
+!docs/*.png
+tools/cache
+!.env.example

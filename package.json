@@ -1,0 +1,21 @@
+{
+  "name": "gitworld",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Git it together at GitWorld",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "@upstash/redis": "^1.41.0",
+    "next": "^16.4.5",
+    "next-auth": "^5.0.0-beta.32",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1"
+  }
+}
