@@ -349,6 +349,7 @@ function buildHub() {
   newest.forEach((b, i) => { const col = i % 2, row = (i / 2) | 0; putHouse(w, b, (col ? 40.5 : 33.8) * T, (16 + row * 5.5) * T); });
   if (!newest.length) {
     w.put(plotSprite(), 37 * T, 17 * T, [44, 6]);
+    w.tag('OPEN PLOT', 37 * T, 17 * T - 30, ACC);
     target(w, { id: 'islandplot', x: 37 * T, y: 17 * T + 8, label: 'Open plot', name: 'Open plot', tapDy: 18, card: openPlotCard() });
   }
   // decor
@@ -414,7 +415,6 @@ function plotSprite() {
   return sprite('plot', 56, 30, g => {
     R(g, 2, 27, 52, 2, 'rgba(0,0,0,0.3)'); R(g, 4, 10, 48, 16, '#3a2a1e'); for (let i = 0; i < 6; i++) R(g, 6 + i * 8, 12 + (i % 2) * 6, 3, 1, '#5e3a24');
     for (let i = 0; i < 7; i++) box(g, 3 + i * 8, 6, 3, 20, '#c9b98e'); R(g, 2, 9, 52, 2, '#c9b98e'); R(g, 2, 19, 52, 2, '#c9b98e');
-    box(g, 16, 0, 24, 9, '#0b0e1c', ACC); text(g, 'OPEN', 28 - textW('OPEN') / 2, 2, ACC);
   });
 }
 function standSprite(full) {
@@ -484,7 +484,7 @@ function buildCity(page = 0) {
     const c = i % CITY_COLS, r = (i / CITY_COLS) | 0, cx = (X0 + c * 6 + 3) * T, by = (TOP + r * 6 + 4) * T;
     const b = slice[i];
     if (b) { putHouse(w, b, cx, by); spots.set(b.login.toLowerCase(), [cx, by + 14]); }
-    else { w.put(plotSprite(), cx, by, [44, 6]); target(w, { id: 'plot' + i, x: cx, y: by + 8, r: 24, tapR: 32, tapDy: 18, label: 'Open plot', name: 'Open plot', card: openPlotCard() }); }
+    else { w.put(plotSprite(), cx, by, [44, 6]); w.tag('OPEN PLOT', cx, by - 30, ACC); target(w, { id: 'plot' + i, x: cx, y: by + 8, r: 24, tapR: 32, tapDy: 18, label: 'Open plot', name: 'Open plot', card: openPlotCard() }); }
   }
   [[1.5, 2], [TW - 2, 2], [TW - 2, TH - 2]].forEach(([x, y]) => { if (paint(x | 0, y) === 'ground') w.tree(x | 0, y); });
   w.lamp(mid - 5 * T, 9.5 * T); w.lamp(mid + 5 * T, 9.5 * T);
