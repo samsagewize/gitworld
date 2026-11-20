@@ -6,7 +6,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <meta name="theme-color" content="#0d1020">
 <title>GitWorld · Git it together at GitWorld</title>
-<meta name="description" content="Git it together at GitWorld">
+<meta name="description" content="Git it together at GitWorld: walk GitHub repos as a pixel cat and visit every builder's building.">
 <meta property="og:title" content="GitWorld">
 <meta property="og:description" content="Git it together at GitWorld">
 <meta property="og:type" content="website">
@@ -62,7 +62,7 @@
     <canvas id="splashCats" width="96" height="24"></canvas>
     <h1>GITWORLD</h1>
     <p class="tag">Git it together at GitWorld</p>
-    <p class="sub">Walk through any public GitHub repo as a pixel cat. Folders are buildings, files are things you can open, and other people are walking around with you.</p>
+    <p class="sub">Walk through any public GitHub repo as a pixel cat, then build your own building in GitWorld City and share it with friends. Every builder who joins adds a building and a cat.</p>
     <div class="splashBtns">
       <button id="spGuest">EXPLORE AS GUEST</button>
       <button id="spSignin" class="alt">SIGN IN WITH GITHUB</button>
@@ -107,18 +107,18 @@
   <h3>1 &middot; PICK YOUR CAT</h3>
   <div id="obCats"></div>
   <button id="obReroll" class="alt small">&#127922; Roll 3 new cats</button>
-  <h3>2 &middot; FEATURE YOUR REPOS <small>(public only, up to 6)</small></h3>
+  <h3>2 &middot; FILL YOUR BUILDING <small>(public repos, up to 6)</small></h3>
   <div id="obRepos" class="plist"></div>
   <div id="obErr" class="perr" aria-live="polite"></div>
-  <button id="obSave">JOIN GITWORLD</button>
-  <p class="pnote">We only ask GitHub for read:user. Your token stays on the server and is never sent to this page. Featured repos show up as buildings on Featured Island for everyone to visit.</p>
+  <button id="obSave">BUILD MY BUILDING</button>
+  <p class="pnote">We only ask GitHub for read:user. Your token stays on the server and is never sent to this page. Your building goes up in GitWorld City with the repos you pick, and anyone with your link can walk in.</p>
 </div>
 
 <!-- player card -->
 <div id="pCard" class="pixel-box panel hidden" role="dialog" aria-label="Player">
   <button class="pclose" data-close="pCard" aria-label="Close">&times;</button>
   <div class="pchead"><img id="pcAvatar" alt=""><div><h2 id="pcName"></h2><a id="pcLink" target="_blank" rel="noopener noreferrer">GitHub profile</a></div></div>
-  <div class="pcBtns"><button id="pcMute" class="alt">Mute</button><button id="pcBlock" class="alt">Block</button><button id="pcReport" class="warn">Report</button></div>
+  <div class="pcBtns"><button id="pcVisit" class="hidden">Visit building</button><button id="pcMute" class="alt">Mute</button><button id="pcBlock" class="alt">Block</button><button id="pcReport" class="warn">Report</button></div>
   <div id="pcNote" class="pnote"></div>
 </div>
 

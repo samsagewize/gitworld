@@ -36,7 +36,7 @@ function cacheSet(k, v, ttl) {
 function pruneCache() { try { const ks = []; for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); if (k && k.startsWith('gwc.')) ks.push(k); } ks.sort((a, b) => (JSON.parse(localStorage.getItem(a)).x) - (JSON.parse(localStorage.getItem(b)).x)); ks.slice(0, Math.max(1, ks.length >> 1)).forEach(k => localStorage.removeItem(k)); } catch (e) { /* ignore */ } }
 
 // ---------- session ----------
-const ME = { auth: false, rt: false, user: null, profile: null, loaded: false };
+const ME = { auth: false, rt: false, store: null, user: null, profile: null, building: null, loaded: false };
 async function loadMe() {
   try { const r = await fetch('/api/me', { credentials: 'same-origin', cache: 'no-store' }); if (r.ok) Object.assign(ME, await r.json()); } catch (e) { /* static mode */ }
   ME.loaded = true; renderAuth();
@@ -277,8 +277,10 @@ function target(w, t) { const o = Object.assign({ r: 26, kind: 'item', tapR: 30 
 // ---------- navigation state ----------
 let cur = { kind: 'hub' };
 let navToken = 0;
-const roomId = () => cur.kind === 'repo' ? (cur.repo.full + '|' + cur.path.slice(0, 200) + '|' + cur.page).toLowerCase() : cur.kind === 'hub' ? 'hub' : 'err';
+const roomId = () => cur.kind === 'repo' ? (cur.repo.full + '|' + cur.path.slice(0, 200) + '|' + cur.page).toLowerCase() : cur.kind === 'hub' ? 'hub' : cur.kind === 'city' ? 'city|' + (cur.page | 0) : cur.kind === 'bld' ? 'b|' + cur.login.toLowerCase() : 'err';
 function urlFor(st) {
+  if (st.kind === 'city') return '/city' + (st.page ? '?page=' + (st.page + 1) : '');
+  if (st.kind === 'bld') return '/b/' + encodeURIComponent(st.login);
   if (st.kind !== 'repo') return '/';
   const q = new URLSearchParams(); q.set('repo', st.repo.full);
   if (st.path) q.set('path', st.path); if (st.page) q.set('page', String(st.page + 1)); if (st.file) q.set('file', st.file);
@@ -287,10 +289,10 @@ function urlFor(st) {
 function syncURL(push, file) {
   const st = Object.assign({}, cur, { file }); const u = urlFor(st);
   if (u === location.pathname + location.search) return;
-  const state = cur.kind === 'repo' ? { repo: cur.repo.full, path: cur.path, page: cur.page, file } : { hub: 1 };
+  const state = cur.kind === 'repo' ? { repo: cur.repo.full, path: cur.path, page: cur.page, file } : cur.kind === 'city' ? { city: 1, page: cur.page } : cur.kind === 'bld' ? { bld: cur.login } : { hub: 1 };
   try { (push ? history.pushState : history.replaceState).call(history, state, '', u); } catch (e) { /* ignore */ }
 }
-function setDocTitle() { document.title = cur.kind === 'repo' ? cur.repo.full + (cur.path ? '/' + cur.path : '') + ' · GitWorld' : 'GitWorld · Git it together at GitWorld'; }
+function setDocTitle() { document.title = cur.kind === 'repo' ? cur.repo.full + (cur.path ? '/' + cur.path : '') + ' · GitWorld' : cur.kind === 'city' ? 'GitWorld City · GitWorld' : cur.kind === 'bld' ? '@' + cur.login + '\u2019s building · GitWorld' : 'GitWorld · Git it together at GitWorld'; }
 
 // ---------- hub: GitWorld Plaza ----------
 let featured = [];
@@ -319,7 +321,7 @@ function buildHub() {
   w.put(mon, P.x, 9 * T, [160, 10]);
   w.light(P.x, 7 * T, 70, ACC, 0.35, { pulse: true });
   target(w, { id: 'mon', x: P.x, y: 9 * T + 8, label: 'GitWorld', name: 'GitWorld monument', tapDy: 30, tapR: 70,
-    card: { tag: 'WELCOME', title: 'Git it together at GitWorld', icon: ['github', ACC], body: 'Every public GitHub repo is a pixel town. Folders are buildings, files are things you can open, the README is a sign. Walk in through the GitHub Gate, or tap a building on Popular Street. Sign in with GitHub to see other cats live, chat, and put your own repos on Featured Island.', links: [{ label: 'OPEN THE GATE', fn: () => openPicker() }] } });
+    card: { tag: 'WELCOME', title: 'Git it together at GitWorld', icon: ['github', ACC], body: 'Every public GitHub repo is a pixel town. Folders are buildings, files are things you can open, the README is a sign. Walk in through the GitHub Gate, or tap a building on Popular Street. Cross the bridge to GitWorld City, where every builder has a building with the repos they picked. Sign in with GitHub to build yours, see other cats live, chat and wave.', links: [{ label: 'OPEN THE GATE', fn: () => openPicker() }] } });
   // GitHub Gate
   w.put(portalSprite(ACC, 'gh'), P.x, 14 * T, [30, 8]);
   w.light(P.x, 13 * T, 34, ACC, 0.5, { pulse: true });
@@ -328,7 +330,7 @@ function buildHub() {
   // sign-in kiosk
   w.put(kioskSprite(C.yellow), 22.5 * T, 23 * T, [16, 6]);
   w.tag(ME.user ? '@' + ME.user.login : 'SIGN IN', 22.5 * T, 23 * T + 2, C.yellow);
-  target(w, { id: 'kiosk', x: 22.5 * T, y: 23 * T + 8, label: ME.user ? 'Your cat & repos' : 'Join with GitHub', name: 'Sign-in kiosk', noAuto: true, act: () => authAction(), tapDy: 16 });
+  target(w, { id: 'kiosk', x: 22.5 * T, y: 23 * T + 8, label: ME.user ? 'Your cat & building' : 'Join with GitHub', name: 'Sign-in kiosk', noAuto: true, act: () => authAction(), tapDy: 16 });
   // Popular Street
   w.tag('POPULAR STREET', 5 * T, 4 * T + 4, C.yellow);
   POPULAR.forEach(([full, desc], i) => {
@@ -338,26 +340,24 @@ function buildHub() {
     w.tag(trunc(full.split('/')[1], 16), bx, byy + 3, C.ink);
     target(w, { id: 'pop' + i, x: bx, y: byy + 10, label: full, name: full, noAuto: true, act: () => enterRepo(full, '', 0, { push: true }), tapDy: 24, tag: desc });
   });
-  // Featured Island
-  w.tag('FEATURED ISLAND', 37 * T, 5 * T + 6, ACC);
-  const feat = featured.slice(0, 12);
-  feat.forEach((f, i) => {
-    const col = i % 2, row = (i / 2) | 0, bx = (col ? 40.5 : 34.5) * T, by = (10 + row * 4) * T;
-    w.put(buildingSprite(f.full, 1 + Math.min(2, Math.floor(Math.log10((f.stars || 0) + 1))), false), bx, by, [40, 12]);
-    w.tag(trunc(f.full.split('/')[1], 14), bx, by + 3, ACC);
-    target(w, { id: 'feat' + i, x: bx, y: by + 10, label: f.full + ' (by @' + f.by + ')', name: f.full, noAuto: true, act: () => enterRepo(f.full, '', 0, { push: true }), tapDy: 24, tag: 'by @' + f.by });
-  });
-  if (!feat.length) {
-    w.put(readmeSprite(), 37 * T, 19 * T, [30, 6]);
-    target(w, { id: 'islandsign', x: 37 * T, y: 19 * T + 8, label: 'Featured Island', name: 'Featured Island',
-      card: { tag: 'FEATURED ISLAND', title: 'Your repos could live here', icon: ['github', ACC], body: 'Sign in with GitHub, pick your cat, then choose which of your public repos to feature. They show up here as buildings anyone can walk into.', links: ME.user ? [{ label: 'PICK MY REPOS', fn: () => openOnboard() }] : ME.auth ? [{ label: 'SIGN IN', fn: () => signIn() }] : [] } });
+  // GitWorld City district: the city gate plus the newest buildings
+  w.tag('GITWORLD CITY', 37 * T, 5 * T + 6, ACC);
+  w.put(portalSprite(ACC, 'gh'), 37 * T, 9 * T, [30, 8]); w.light(37 * T, 8 * T, 40, ACC, 0.5, { pulse: true });
+  w.tag(CITY.total + (CITY.total === 1 ? ' BUILDING' : ' BUILDINGS') + (CITY.online.size ? ' - ' + CITY.online.size + ' ONLINE' : ''), 37 * T, 9 * T + 2, C.ink);
+  target(w, { id: 'citygate', kind: 'main', mdy: 58, x: 37 * T, y: 9 * T + 10, label: 'Enter GitWorld City', name: 'GitWorld City', noAuto: true, act: () => enterCity(0, { push: true }), tapDy: 22 });
+  const newest = CITY.list.slice(-6).reverse();
+  newest.forEach((b, i) => { const col = i % 2, row = (i / 2) | 0; putHouse(w, b, (col ? 40.5 : 33.8) * T, (16 + row * 5.5) * T); });
+  if (!newest.length) {
+    w.put(plotSprite(), 37 * T, 17 * T, [44, 6]);
+    target(w, { id: 'islandplot', x: 37 * T, y: 17 * T + 8, label: 'Open plot', name: 'Open plot', tapDy: 18, card: openPlotCard() });
   }
   // decor
   [[3, 3], [9, 3], [27, 4], [26, 10], [27, 26], [12, 33], [22, 33], [3, 24], [3, 12], [24, 2], [42, 33]].forEach(([x, y]) => { if (paint(x, y) === 'ground' || paint(x, y) === 'island') w.tree(x, y); });
   [[14, 16], [23, 16], [14, 21], [23, 21], [33, 16.5], [43, 16.5]].forEach(([x, y]) => w.lamp(x * T, y * T));
   w.places = () => withGo([{ name: 'GitHub Gate', tag: 'Enter any public repo', go: () => openPicker() }, { name: 'Plaza', tag: 'Center of GitWorld', x: P.x, y: P.y + 40 },
+    { name: 'GitWorld City', tag: CITY.total + ' buildings, one per builder', go: () => enterCity(0, { push: true }) }, ...(ME.user && CITY.byKey.has(ME.user.login.toLowerCase()) ? [{ name: 'My building', tag: '@' + ME.user.login, go: () => enterBuilding(ME.user.login, { push: true }) }] : []),
     ...POPULAR.map(([f, d], i) => ({ name: f, tag: d, x: w.targets.find(t => t.id === 'pop' + i).x, y: w.targets.find(t => t.id === 'pop' + i).y })),
-    ...feat.map((f, i) => ({ name: f.full, tag: 'Featured by @' + f.by, x: w.targets.find(t => t.id === 'feat' + i).x, y: w.targets.find(t => t.id === 'feat' + i).y }))]);
+    ...newest.map(b => ({ name: '@' + b.login + '\u2019s building', tag: 'Newest in GitWorld City', go: () => enterBuilding(b.login, { push: true }) }))]);
   w.spawn = [P.x, 15.6 * T];
   return w;
 }
@@ -369,9 +369,243 @@ function enterHub(opts = {}) {
   closePanels(); renderBar(); setDocTitle(); if (opts.push !== undefined) syncURL(opts.push);
   RT.enter();
 }
-async function loadFeatured() {
-  try { const r = await fetch('/api/featured', { cache: 'no-store' }); if (!r.ok) return; const d = await r.json(); featured = (d.repos || []).filter(f => parseRepoInput(f.full));
-    if (cur.kind === 'hub') { const x = player.x, y = player.y, w = buildHub(); E.setWorld(w, x, y, player.dir); RT.reattach(); } } catch (e) { /* none yet */ }
+// ---------- GitWorld City: every profile is a building ----------
+const CITY = { list: [], byKey: new Map(), online: new Set(), total: 0, store: null, loaded: false, at: 0 };
+const CITY_PER = 30, CITY_COLS = 6;
+const avatars = new Map();
+function avatarImg(login) {
+  const k = login.toLowerCase(); if (avatars.has(k)) return avatars.get(k);
+  const im = new Image(); im.referrerPolicy = 'no-referrer'; im.decoding = 'async'; im.src = avatarUrl(login); avatars.set(k, im); return im;
+}
+const plural = (n, w) => (n | 0) + ' ' + w + ((n | 0) === 1 ? '' : 's');
+const isMine = login => !!(ME.user && login && ME.user.login.toLowerCase() === String(login).toLowerCase());
+const bldUrl = login => location.origin + '/b/' + encodeURIComponent(login);
+function cityIndex(login) { const k = String(login).toLowerCase(); return CITY.list.findIndex(b => b.login.toLowerCase() === k); }
+async function loadCity(rebuild = true) {
+  try {
+    const r = await fetch('/api/buildings', { cache: 'no-store' }); if (!r.ok) return;
+    const d = await r.json();
+    CITY.list = (d.buildings || []).filter(b => b && typeof b.login === 'string' && OWNER_RE.test(b.login));
+    CITY.byKey = new Map(CITY.list.map(b => [b.login.toLowerCase(), b]));
+    CITY.online = new Set((d.online || []).map(s => String(s).toLowerCase())); CITY.total = d.total || CITY.list.length; CITY.store = d.store || null; CITY.loaded = true; CITY.at = Date.now();
+    featured = []; for (const b of CITY.list.slice().reverse()) for (const rp of (b.repos || [])) if (featured.length < 24 && parseRepoInput(rp.full)) featured.push({ full: rp.full, desc: rp.desc, stars: rp.stars, by: b.login });
+    if (rebuild && !panelOpen() && (cur.kind === 'hub' || cur.kind === 'city')) { const x = player.x, y = player.y, d2 = player.dir, w = cur.kind === 'hub' ? buildHub() : buildCity(cur.page); E.setWorld(w, x, y, d2); RT.reattach(); }
+  } catch (e) { /* offline */ }
+}
+setInterval(() => { if (!document.hidden && (cur.kind === 'hub' || cur.kind === 'city') && Date.now() - CITY.at > 14000) loadCity(true); }, 5000);
+function loadFeatured() { return loadCity(true); }
+
+// sprites
+function houseSprite(login, floors, mine) {
+  const hue = HUES[hash(login.toLowerCase()) % HUES.length], W = 60, H = 26 + floors * 11;
+  return sprite('h' + login + floors + (mine ? 1 : 0), W, H + 8, g => {
+    R(g, 2, H + 4, W - 4, 3, 'rgba(0,0,0,0.35)');
+    box(g, 3, 8, W - 6, H - 4, C.wall); R(g, 4, 9, W - 8, 2, C.wall2);
+    // avatar frame (the avatar itself is drawn live on top, see putHouse)
+    box(g, (W >> 1) - 9, 11, 18, 18, '#06070f', mine ? ACC : hue[1]);
+    for (let f = 0; f < floors; f++) for (let i = 0; i < 4; i++) { if (f === 0 && (i === 1 || i === 2)) continue; const lit = (hash(login + f + i) % 3) > 0; box(g, 7 + i * 13, 14 + f * 11 + (f ? 8 : 0), 7, 6, lit ? '#ffe9a8' : C.glass, C.out); }
+    R(g, 0, 2, W, 7, C.out); R(g, 1, 3, W - 2, 5, mine ? '#12352f' : hue[0]); R(g, 1, 3, W - 2, 1, mine ? ACC : hue[1]); R(g, 1, 7, W - 2, 1, hue[2]);
+    R(g, 8, 0, W - 16, 3, C.out); R(g, 9, 1, W - 18, 2, mine ? ACC : hue[1]);
+    const dx = (W >> 1) - 5; box(g, dx, H - 7, 10, 11, '#1a1f36', C.out); R(g, dx + 2, H - 5, 6, 8, hue[2]); R(g, dx + 7, H - 1, 1, 1, C.yellow);
+    R(g, dx - 2, H + 3, 14, 2, C.edge);
+  });
+}
+function plotSprite() {
+  return sprite('plot', 56, 30, g => {
+    R(g, 2, 27, 52, 2, 'rgba(0,0,0,0.3)'); R(g, 4, 10, 48, 16, '#3a2a1e'); for (let i = 0; i < 6; i++) R(g, 6 + i * 8, 12 + (i % 2) * 6, 3, 1, '#5e3a24');
+    for (let i = 0; i < 7; i++) box(g, 3 + i * 8, 6, 3, 20, '#c9b98e'); R(g, 2, 9, 52, 2, '#c9b98e'); R(g, 2, 19, 52, 2, '#c9b98e');
+    box(g, 16, 0, 24, 9, '#0b0e1c', ACC); text(g, 'OPEN', 28 - textW('OPEN') / 2, 2, ACC);
+  });
+}
+function standSprite(full) {
+  const hue = HUES[hash(full.toLowerCase()) % HUES.length];
+  return sprite('st' + full, 26, 34, g => {
+    R(g, 2, 31, 22, 2, 'rgba(0,0,0,0.35)'); box(g, 4, 20, 18, 12, hue[0]); R(g, 5, 21, 16, 2, hue[1]);
+    box(g, 1, 0, 24, 20, '#11162a', hue[1]); R(g, 3, 2, 20, 16, '#06070f');
+    R(g, 5, 5, 7, 1, ACC); R(g, 6, 8, 12, 1, '#6c789e'); R(g, 6, 11, 9, 1, hue[1]); R(g, 6, 14, 5, 1, C.ink);
+  });
+}
+function bellSprite() {
+  return sprite('bell', 22, 34, g => {
+    R(g, 2, 31, 18, 2, 'rgba(0,0,0,0.35)'); box(g, 9, 10, 4, 22, '#5e3a24'); box(g, 1, 6, 20, 4, '#5e3a24');
+    for (let y = 0; y < 9; y++) { const w = 2 + Math.round(y * 0.7); R(g, 11 - w, 10 + y, w * 2, 1, y < 2 ? '#fff3b0' : C.yellow); } R(g, 10, 19, 2, 2, '#8f5a3a');
+  });
+}
+function putHouse(w, b, cx, by) {
+  const mine = isMine(b.login), on = CITY.online.has(b.login.toLowerCase());
+  const floors = clamp(1 + Math.ceil((b.repos || []).length / 2), 1, 4), img = houseSprite(b.login, floors, mine);
+  w.put(img, cx, by, [52, 12]);
+  // live avatar in the frame on the facade
+  const top = by - img.height + 12; w.props.push({ y: by - 3, draw: g2 => { const im = avatarImg(b.login); if (im.complete && im.naturalWidth) { try { g2.drawImage(im, Math.round(cx - 8), top, 16, 16); } catch (e) { /* */ } } } });
+  if (on) w.light(cx, by - 20, 34, ACC, 0.4, { pulse: true });
+  w.tag((mine ? 'YOU @' : '@') + trunc(b.login, 14), cx, by + 3, mine ? ACC : on ? C.mint : C.ink);
+  return target(w, { id: 'bld:' + b.login.toLowerCase(), x: cx, y: by + 10, r: 24, tapR: 36, tapDy: 28, noAuto: true,
+    label: '@' + b.login + ' \u00b7 ' + (b.repos || []).length + ' repos \u00b7 ' + (b.v || 0) + ' visits' + (on ? ' \u00b7 online' : ''), name: '@' + b.login, act: () => enterBuilding(b.login, { push: true }) });
+}
+function openPlotCard() {
+  return { tag: 'OPEN PLOT', title: ME.user ? (CITY.byKey.has(ME.user.login.toLowerCase()) ? 'Saved for the next builder' : 'This plot is yours') : 'Your building could go here', icon: ['github', ACC],
+    body: ME.user ? 'Every GitWorld profile gets a building in the city. Pick your cat and the public repos you want inside, and your building goes up for everyone to visit.' : ME.auth ? 'Sign in with GitHub, pick a cat and the public repos you want to show, and a building with your name goes up here. Share the link with friends so they can walk in.' : 'Soon you can sign in with GitHub and build here. Every profile adds a building and a cat to the city.',
+    links: ME.user ? [{ label: CITY.byKey.has(ME.user.login.toLowerCase()) ? 'EDIT MY BUILDING' : 'BUILD MINE', fn: () => openOnboard() }] : ME.auth ? [{ label: 'SIGN IN WITH GITHUB', fn: () => signIn() }] : [] };
+}
+function demoCard() {
+  return { tag: 'DEMO MODE', title: 'The city database is not connected yet', icon: ['shield', C.yellow], body: 'GitWorld is running on a temporary in-memory store, so buildings, visits and waves can reset when the server restarts, and players on different servers may not see each other. It switches to the shared live database as soon as Redis is connected.' };
+}
+function buildCity(page = 0) {
+  const pages = Math.max(1, Math.ceil((CITY.list.length + 3) / CITY_PER)); page = clamp(page | 0, 0, pages - 1);
+  const slice = CITY.list.slice(page * CITY_PER, (page + 1) * CITY_PER);
+  const rem = (CITY_COLS - slice.length % CITY_COLS) % CITY_COLS, openN = page === pages - 1 ? (rem >= 3 ? rem : rem + CITY_COLS) : 0;
+  const n = slice.length + openN, rows = Math.max(1, Math.ceil(n / CITY_COLS));
+  const X0 = 4, TOP = 12, TW = X0 + CITY_COLS * 6 + 3, TH = TOP + rows * 6 + 2;
+  const paint = (tx, ty) => {
+    if (tx < 1 || ty < 1 || tx >= TW - 1 || ty >= TH - 1) return 'void';
+    if (tx >= 2 && tx <= 3) return 'lane';
+    if (ty >= 3 && ty <= 8 && tx >= 6 && tx <= TW - 5) return 'plaza';
+    if (ty === 10 || ty === 11) return 'street';
+    if (ty >= TOP && (ty - TOP) % 6 === 5) return 'street';
+    return 'ground';
+  };
+  const w = newWorld('city', TW, TH, paint), mid = (TW / 2) * T;
+  // city sign
+  const label = 'GITWORLD CITY', sub = CITY.total + (CITY.total === 1 ? ' BUILDING' : ' BUILDINGS') + ' - ' + CITY.online.size + ' ONLINE';
+  const sw = Math.max(textW(label, 2), textW(pix(sub))) + 20;
+  w.put(sprite('citysign' + sub, sw, 40, g => { R(g, 4, 37, sw - 8, 2, 'rgba(0,0,0,0.35)'); box(g, 0, 0, sw, 28, '#0b0e1c', ACC); text(g, label, sw / 2 - textW(label, 2) / 2, 5, ACC, 2); text(g, pix(sub), sw / 2 - textW(pix(sub)) / 2, 18, C.ink); box(g, 10, 28, 4, 10, C.wall); box(g, sw - 14, 28, 4, 10, C.wall); }), mid, 6 * T, [sw - 8, 6]);
+  w.light(mid, 4 * T, 60, ACC, 0.3, { pulse: true });
+  target(w, { id: 'citysign', x: mid, y: 6 * T + 10, tapDy: 24, tapR: 60, label: 'GitWorld City', name: 'GitWorld City',
+    card: { tag: 'GITWORLD CITY' + (pages > 1 ? ' \u00b7 STREET ' + (page + 1) + '/' + pages : ''), title: CITY.total + ' builders live here', icon: ['github', ACC], body: 'Every GitWorld profile is a building. Walk into one to see the repos its owner picked, wave at them, and say hi to whoever is around. Lit-up buildings mean the owner is online right now.',
+      links: [...(ME.user && CITY.byKey.has(ME.user.login.toLowerCase()) ? [{ label: 'MY BUILDING', fn: () => enterBuilding(ME.user.login, { push: true }) }] : ME.user ? [{ label: 'BUILD MINE', fn: () => openOnboard() }] : ME.auth ? [{ label: 'SIGN IN TO BUILD', fn: () => signIn() }] : []), { label: 'COPY CITY LINK', alt: true, fn: () => shareLink(location.origin + '/city', 'GitWorld City') }] } });
+  // back to plaza
+  w.put(portalSprite(C.purple, 'back'), 4 * T, 7 * T, [26, 8]); w.tag('PLAZA', 4 * T, 7 * T + 2, C.purple);
+  target(w, { id: 'back', x: 4 * T, y: 7 * T + 10, label: 'Back to GitWorld Plaza', name: 'Back', noAuto: true, act: () => enterHub({ push: true, at: [37 * T, 10.5 * T] }), tapDy: 22 });
+  if (CITY.store === 'memory') { w.put(readmeSprite(), mid + 9 * T, 8.6 * T, [30, 6]); w.tag('DEMO MODE', mid + 9 * T, 8.6 * T + 2, C.yellow); target(w, { id: 'demo', x: mid + 9 * T, y: 8.6 * T + 8, label: 'Demo mode', name: 'Demo mode', tapDy: 20, card: demoCard() }); }
+  if (page > 0) { w.put(portalSprite(C.sky, 'prev'), (TW - 4) * T, 4.5 * T, [26, 8]); w.tag('STREET ' + page, (TW - 4) * T, 4.5 * T + 2, C.sky); target(w, { id: 'prev', x: (TW - 4) * T, y: 4.5 * T + 10, label: 'Previous street', name: 'Prev', noAuto: true, act: () => enterCity(page - 1, { push: true }), tapDy: 22 }); }
+  if (page < pages - 1) { w.put(portalSprite(C.sky, 'next'), (TW - 4) * T, 8.5 * T, [26, 8]); w.tag('STREET ' + (page + 2), (TW - 4) * T, 8.5 * T + 2, C.sky); target(w, { id: 'next', x: (TW - 4) * T, y: 8.5 * T + 10, label: 'Next street', name: 'Next', noAuto: true, act: () => enterCity(page + 1, { push: true }), tapDy: 22 }); }
+  const spots = new Map();
+  for (let i = 0; i < n; i++) {
+    const c = i % CITY_COLS, r = (i / CITY_COLS) | 0, cx = (X0 + c * 6 + 3) * T, by = (TOP + r * 6 + 4) * T;
+    const b = slice[i];
+    if (b) { putHouse(w, b, cx, by); spots.set(b.login.toLowerCase(), [cx, by + 14]); }
+    else { w.put(plotSprite(), cx, by, [44, 6]); target(w, { id: 'plot' + i, x: cx, y: by + 8, r: 24, tapR: 32, tapDy: 18, label: 'Open plot', name: 'Open plot', card: openPlotCard() }); }
+  }
+  [[1.5, 2], [TW - 2, 2], [TW - 2, TH - 2]].forEach(([x, y]) => { if (paint(x | 0, y) === 'ground') w.tree(x | 0, y); });
+  w.lamp(mid - 5 * T, 9.5 * T); w.lamp(mid + 5 * T, 9.5 * T);
+  const mineB = ME.user && CITY.byKey.get(ME.user.login.toLowerCase());
+  w.places = () => withGo([{ name: 'City sign', tag: 'GitWorld City', x: mid, y: 7.5 * T }, ...(mineB ? [{ name: 'My building', tag: '@' + mineB.login, go: () => enterBuilding(mineB.login, { push: true }) }] : []),
+    { name: 'Back to Plaza', tag: 'GitWorld Plaza', go: () => enterHub({ push: true }) },
+    ...slice.slice(0, 40).map(b => ({ name: '@' + b.login, tag: (b.repos || []).length + ' repos \u00b7 ' + (b.v || 0) + ' visits' + (CITY.online.has(b.login.toLowerCase()) ? ' \u00b7 online' : ''), x: spots.get(b.login.toLowerCase())[0], y: spots.get(b.login.toLowerCase())[1] }))]);
+  w.spots = spots; w.spawn = [mid, 9 * T]; w.page = page; w.pages = pages;
+  return w;
+}
+async function enterCity(page = 0, opts = {}) {
+  navToken++; closePanels();
+  if (!CITY.loaded || Date.now() - CITY.at > 5000) await loadCity(false);
+  cur = { kind: 'city', page };
+  const w = buildCity(page); cur.page = w.page;
+  const sp = (opts.focus && w.spots.get(opts.focus.toLowerCase())) || w.spawn;
+  E.setWorld(w, sp[0], sp[1], opts.focus ? 'down' : 'up');
+  renderBar(); setDocTitle(); if (opts.push !== undefined) syncURL(opts.push);
+  RT.enter();
+}
+
+// building interior
+function buildInterior(b) {
+  const TW = 26, TH = 18, mine = isMine(b.login), repos = (b.repos || []).filter(r => parseRepoInput(r.full)).slice(0, 6);
+  const paint = (tx, ty) => (tx < 1 || ty < 1 || tx >= TW - 1 || ty >= TH - 1) ? 'void' : (tx >= 12 && tx <= 13 && ty >= 11) ? 'street' : 'plaza';
+  const w = newWorld('bld', TW, TH, paint), mid = 13 * T, hue = HUES[hash(b.login.toLowerCase()) % HUES.length];
+  // back wall with owner's name
+  const title = '@' + trunc(b.login, 18), sub = trunc(b.name && b.name !== b.login ? b.name : 'GITWORLD BUILDER', 26);
+  const sw = Math.max(textW(pix(title), 2), textW(pix(sub))) + 44;
+  w.put(sprite('own' + b.login + sub, sw, 40, g => { R(g, 4, 37, sw - 8, 2, 'rgba(0,0,0,0.35)'); box(g, 0, 0, sw, 30, '#0b0e1c', mine ? ACC : hue[1]); box(g, 5, 5, 20, 20, '#06070f', hue[1]); text(g, pix(title), 30, 6, mine ? ACC : C.ink, 2); text(g, pix(sub), 30, 19, '#aab4d0'); box(g, 10, 30, 4, 8, C.wall); box(g, sw - 14, 30, 4, 8, C.wall); }), mid, 5 * T, [sw - 8, 6]);
+  const signTop = 5 * T - 40; w.props.push({ y: 5 * T - 3, draw: g2 => { const im = avatarImg(b.login); if (im.complete && im.naturalWidth) { try { g2.drawImage(im, Math.round(mid - sw / 2 + 7), signTop + 7, 16, 16); } catch (e) { /* */ } } } });
+  w.light(mid, 3 * T, 70, mine ? ACC : hue[1], 0.35, { pulse: true });
+  const shareFn = () => shareLink(bldUrl(b.login), '@' + b.login + '\u2019s building in GitWorld');
+  target(w, { id: 'owner', x: mid, y: 5 * T + 10, tapDy: 26, tapR: 70, label: '@' + b.login + '\u2019s building', name: '@' + b.login,
+    card: { tag: mine ? 'YOUR BUILDING' : 'BUILDING', title: '@' + b.login + (b.name && b.name !== b.login ? ' \u00b7 ' + b.name : ''), icon: ['github', ACC],
+      body: (repos.length ? repos.length + (repos.length === 1 ? ' repo' : ' repos') + ' on display. ' : 'No repos on display yet. ') + plural(b.v, 'visit') + ', ' + plural(b.w, 'wave') + '.' + (mine ? ' Share your link so friends can walk in.' : ''),
+      links: [{ label: 'SHARE LINK', fn: shareFn }, ...(mine ? [{ label: 'EDIT REPOS', alt: true, fn: () => openOnboard() }] : [{ label: 'GITHUB PROFILE', alt: true, href: 'https://github.com/' + encodeURIComponent(b.login) }])] } });
+  // owner's cat on a pedestal
+  const look = b.cat && E.lookFromDNA(b.cat);
+  if (look) {
+    const ped = sprite('ped' + b.cat, 24, 34, g => { R(g, 2, 31, 20, 2, 'rgba(0,0,0,0.35)'); box(g, 2, 20, 20, 12, '#4a5390'); R(g, 3, 21, 18, 2, '#5f6cb0'); g.drawImage(E.catSprite(look, 'down', 0), 4, 4); if (look.acc && look.acc !== 'none') E.drawAcc(g, look.acc, 4, 4, 0, true); });
+    w.put(ped, 5 * T, 6 * T, [18, 6]);
+    target(w, { id: 'cat', x: 5 * T, y: 6 * T + 8, tapDy: 20, label: E.dnaName(b.cat) || 'Owner\u2019s cat', name: 'Owner\u2019s cat', card: { tag: 'OWNER\u2019S CAT', title: E.dnaName(b.cat) || 'A GitWorld cat', icon: ['github', ACC], body: '@' + b.login + ' walks around GitWorld as this cat. ' + (CITY.online.has(b.login.toLowerCase()) || b.on ? 'They are online right now, so say hi!' : 'They are not online right now.') } });
+  }
+  // visitor board
+  w.put(boardSprite(), 21 * T, 6 * T, [40, 6]); w.tag((b.v || 0) + ((b.v || 0) === 1 ? ' VISIT' : ' VISITS'), 21 * T, 6 * T + 2, C.yellow);
+  const waves = mine && ME.building && ME.building.waves ? ME.building.waves : [];
+  target(w, { id: 'visits', x: 21 * T, y: 6 * T + 10, tapDy: 22, label: plural(b.v, 'visit') + ' \u00b7 ' + plural(b.w, 'wave'), name: 'Visitor board',
+    card: { tag: 'VISITOR BOARD', title: plural(b.v, 'visit') + ' \u00b7 ' + plural(b.w, 'wave'), icon: ['chart', C.yellow], body: mine ? (waves.length ? 'Latest waves: ' + waves.map(x => '@' + x.by).join(', ') + '.' : 'No waves yet. Share your building link and friends can wave at you.') : 'Visits count once per visitor every few hours. Ring the bell to wave at @' + b.login + '.' } });
+  // wave bell
+  if (!mine) {
+    w.put(bellSprite(), 21 * T, 14 * T, [12, 5]); w.tag('WAVE', 21 * T, 14 * T + 2, C.yellow); w.light(21 * T, 13 * T, 22, C.yellow, 0.35, { pulse: true });
+    target(w, { id: 'bell', x: 21 * T, y: 14 * T + 8, tapDy: 22, noAuto: true, label: 'Wave at @' + b.login, name: 'Wave bell', act: () => waveAt(b) });
+  }
+  // the repos on display
+  if (repos.length) {
+    const gap = Math.min(4, 20 / repos.length);
+    repos.forEach((rp, i) => {
+      const cx = (13 - (repos.length - 1) * gap / 2 + i * gap) * T, by = 10 * T;
+      w.put(standSprite(rp.full), cx, by, [20, 6]); w.tag(trunc(rp.full.split('/')[1], 12), cx, by + 3, ACC);
+      w.light(cx, by - 20, 16, ACC, 0.25);
+      target(w, { id: 'repo' + i, x: cx, y: by + 10, r: 22, tapR: 26, tapDy: 22, label: rp.full, name: rp.full,
+        card: { tag: 'REPO' + (rp.lang ? ' \u00b7 ' + rp.lang : '') + (rp.stars ? ' \u00b7 \u2605 ' + fmtN(rp.stars) : ''), title: rp.full, icon: ['github', ACC], body: rp.desc || 'No description.',
+          links: [{ label: 'WALK IN', fn: () => enterRepo(rp.full, '', 0, { push: true }) }, { label: 'OPEN ON GITHUB', alt: true, href: 'https://github.com/' + rp.full }] } });
+    });
+  } else {
+    w.put(readmeSprite(), mid, 10 * T, [30, 6]);
+    target(w, { id: 'empty', x: mid, y: 10 * T + 8, tapDy: 20, label: 'Nothing on display yet', name: 'Empty display', card: { tag: 'DISPLAY', title: 'Nothing on display yet', icon: ['github', ACC], body: mine ? 'Pick which of your public repos go in your building.' : '@' + b.login + ' has not picked any repos yet.', links: mine ? [{ label: 'PICK MY REPOS', fn: () => openOnboard() }] : [] } });
+  }
+  // exit door
+  w.put(portalSprite(C.purple, 'back'), mid, 16.4 * T, [26, 6]); w.tag('CITY', mid, 16.4 * T + 2, C.purple);
+  target(w, { id: 'back', x: mid, y: 16.4 * T + 8, label: 'Back to GitWorld City', name: 'Exit', noAuto: true, act: () => exitBuilding(b.login), tapDy: 22 });
+  w.lamp(3 * T, 14 * T); w.lamp(23 * T, 10 * T);
+  w.places = () => withGo([{ name: 'Owner sign', tag: '@' + b.login, x: mid, y: 7 * T }, ...repos.map((rp, i) => ({ name: rp.full, tag: rp.desc || 'Repo on display', x: w.targets.find(t => t.id === 'repo' + i).x, y: w.targets.find(t => t.id === 'repo' + i).y })),
+    ...(mine ? [] : [{ name: 'Wave bell', tag: 'Wave at @' + b.login, x: 21 * T, y: 15 * T }]), { name: 'Back to GitWorld City', tag: 'Exit', go: () => exitBuilding(b.login) }]);
+  w.spawn = [mid, 14.6 * T];
+  return w;
+}
+function exitBuilding(login) { const i = cityIndex(login); enterCity(i >= 0 ? Math.floor(i / CITY_PER) : 0, { push: true, focus: login }); }
+async function enterBuilding(login, opts = {}) {
+  const tok = ++navToken; closePanels();
+  if (!OWNER_RE.test(login || '')) { enterCity(0, { push: opts.push }); return; }
+  let b = CITY.byKey.get(login.toLowerCase()) || null;
+  try { const r = await fetch('/api/b/' + encodeURIComponent(login), { cache: 'no-store' }); if (r.ok) { const d = await r.json(); if (d.building) b = d.building; } else if (r.status === 404) b = null; } catch (e) { /* use cached */ }
+  if (tok !== navToken) return;
+  if (!b) {
+    if (!CITY.loaded) await loadCity(false);
+    await enterCity(0, { push: opts.push });
+    E.showToast('@' + login + ' has not built in GitWorld yet. ' + (ME.user ? 'Invite them!' : 'Maybe you will be first?'), 4500); return;
+  }
+  CITY.byKey.set(b.login.toLowerCase(), Object.assign(CITY.byKey.get(b.login.toLowerCase()) || {}, b));
+  cur = { kind: 'bld', login: b.login, b };
+  const w = buildInterior(b); E.setWorld(w, w.spawn[0], w.spawn[1], 'up');
+  renderBar(); setDocTitle(); if (opts.push !== undefined) syncURL(opts.push);
+  RT.enter();
+  countVisit(b);
+  if (opts.welcome) setTimeout(() => { if (E.world === w) E.openDialog(w.targets.find(t => t.id === 'owner')); }, 400);
+}
+async function countVisit(b) {
+  if (isMine(b.login)) return;
+  const k = 'gwv.' + b.login.toLowerCase(); try { if (sessionStorage.getItem(k)) return; sessionStorage.setItem(k, '1'); } catch (e) { /* */ }
+  try { const r = await fetch('/api/b/' + encodeURIComponent(b.login) + '/visit', { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' }, body: '{}' });
+    const d = await r.json().catch(() => ({})); if (r.ok && typeof d.v === 'number' && d.v !== b.v) { b.v = d.v; if (cur.kind === 'bld' && cur.login === b.login) refreshInterior(); } } catch (e) { /* */ }
+}
+function refreshInterior() { if (cur.kind !== 'bld') return; const x = player.x, y = player.y, d = player.dir, w = buildInterior(cur.b); E.setWorld(w, x, y, d); RT.reattach(); }
+async function waveAt(b) {
+  if (!ME.user) { if (ME.auth) { E.showToast('Sign in with GitHub to wave at @' + b.login + '.', 3000); signIn(); } else E.showToast('Waving switches on with GitHub sign-in, coming soon.', 3000); return; }
+  try {
+    const r = await fetch('/api/b/' + encodeURIComponent(b.login) + '/wave', { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' }, body: '{}' });
+    const d = await r.json().catch(() => ({}));
+    if (!r.ok) { E.showToast(d.error || 'Wave not sent.', 3000); return; }
+    if (RT.on) sendChat({ e: 'wave' });
+    E.blip(880);
+    if (d.already) E.showToast('You already waved at @' + b.login + ' today. They will see it!', 3000);
+    else { b.w = d.w; E.showToast('\ud83d\udc4b You waved at @' + b.login + '!', 2500); refreshInterior(); }
+  } catch (e) { E.showToast('Wave not sent (offline?).', 2500); }
+}
+function shareLink(u, title) {
+  const done = () => E.showToast('Link copied: ' + u.replace(/^https?:\/\//, ''), 2600);
+  if (E.isTouch && navigator.share) { navigator.share({ title, url: u }).catch(() => {}); return; }
+  if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(u).then(done, () => prompt('Copy this link', u)); else prompt('Copy this link', u);
 }
 
 // ---------- repo towns ----------
@@ -539,13 +773,15 @@ PANELS.forEach(p => $(p).addEventListener('keydown', e => { if (e.key === 'Escap
 function renderBar() {
   const cr = $('ghCrumbs'); cr.textContent = '';
   const add = (label, fn, isCur) => { if (cr.childNodes.length) cr.appendChild(el('i', null, '/')); const b = el('button', isCur ? 'cur' : null, label); b.addEventListener('click', fn); cr.appendChild(b); };
-  document.body.classList.toggle('inrepo', cur.kind === 'repo');
+  document.body.classList.toggle('inrepo', cur.kind === 'repo' || cur.kind === 'city' || cur.kind === 'bld');
   if (cur.kind === 'repo') {
     const Rp = cur.repo, segs = cur.path ? cur.path.split('/') : [];
     add(Rp.full, () => enterRepo(Rp.full, '', 0, { push: true, from: segs.length ? segs[0] : undefined }), !segs.length);
     segs.forEach((s, i) => { const p = segs.slice(0, i + 1).join('/'); add(trunc(s, 24), () => enterRepo(Rp.full, p, 0, { push: true, from: segs[i + 1] ? segs.slice(0, i + 2).join('/') : undefined }), i === segs.length - 1); });
     const w = E.world; $('ghPage').textContent = w.pages > 1 ? 'STREET ' + (w.page + 1) + '/' + w.pages : '';
-  } else { add(cur.kind === 'hub' ? 'GitWorld Plaza' : (cur.label || 'Lost'), () => {}, true); $('ghPage').textContent = ''; }
+  } else if (cur.kind === 'city') { add('GitWorld City', () => {}, true); const w = E.world; $('ghPage').textContent = w.pages > 1 ? 'STREET ' + (w.page + 1) + '/' + w.pages : ''; }
+  else if (cur.kind === 'bld') { add('GitWorld City', () => exitBuilding(cur.login)); add('@' + cur.login, () => {}, true); $('ghPage').textContent = ''; }
+  else { add(cur.kind === 'hub' ? 'GitWorld Plaza' : (cur.label || 'Lost'), () => {}, true); $('ghPage').textContent = ''; }
   cr.lastChild && cr.lastChild.scrollIntoView && setTimeout(() => { try { $('ghBar').scrollLeft = 1e5; } catch (e) { /* */ } }, 0);
 }
 $('ghHome').addEventListener('click', () => enterHub({ push: true }));
@@ -688,7 +924,7 @@ function signOut() { authForm('/api/auth/signout'); }
 function authAction() { if (!ME.user) signIn(); else openOnboard(); }
 function renderAuth() {
   const b = $('btnAuth'); b.textContent = '';
-  if (ME.user) { b.classList.add('me'); const im = new Image(); im.alt = ''; im.referrerPolicy = 'no-referrer'; im.src = avatarUrl(ME.user.login); b.appendChild(im); b.appendChild(document.createTextNode(trunc('@' + ME.user.login, 14))); b.title = 'Your cat & featured repos'; }
+  if (ME.user) { b.classList.add('me'); const im = new Image(); im.alt = ''; im.referrerPolicy = 'no-referrer'; im.src = avatarUrl(ME.user.login); b.appendChild(im); b.appendChild(document.createTextNode(trunc('@' + ME.user.login, 14))); b.title = 'Your cat & building'; }
   else { b.classList.remove('me'); b.textContent = 'SIGN IN'; b.title = ME.auth ? 'Sign in with GitHub to join the live world' : 'Sign-in is not switched on yet'; }
   $('btnChat').classList.toggle('hidden', !RT.on);
   $('chatBar').classList.toggle('hidden', !RT.on);
@@ -720,7 +956,7 @@ $('obReroll').addEventListener('click', () => rollCats());
 async function openOnboard() {
   if (!ME.user) return signIn();
   openPanel('onboard'); $('obErr').textContent = '';
-  $('obLogin').textContent = '@' + ME.user.login; $('obName').textContent = 'Pick the cat you will walk around as, then choose which of your public repos to feature on Featured Island.';
+  $('obLogin').textContent = '@' + ME.user.login; $('obName').textContent = 'Pick the cat you will walk around as, then choose which of your public repos go in your building in GitWorld City. Your building link: ' + bldUrl(ME.user.login).replace(/^https?:\/\//, '');
   rollCats.rolled = false; rollCats();
   obSel = new Set(((ME.profile && ME.profile.featured) || []).map(s => s.toLowerCase()));
   const list = $('obRepos'); list.textContent = 'Loading your public repos\u2026';
@@ -733,7 +969,7 @@ async function openOnboard() {
     d.repos.forEach(rp => {
       const lab = el('label'), cb = document.createElement('input'); cb.type = 'checkbox'; cb.checked = obSel.has(rp.full.toLowerCase());
       lab.classList.toggle('on', cb.checked);
-      cb.addEventListener('change', () => { const k = rp.full.toLowerCase(); if (cb.checked && obSel.size >= 6) { cb.checked = false; $('obErr').textContent = 'You can feature up to 6 repos.'; return; } cb.checked ? obSel.add(k) : obSel.delete(k); lab.classList.toggle('on', cb.checked); $('obErr').textContent = ''; });
+      cb.addEventListener('change', () => { const k = rp.full.toLowerCase(); if (cb.checked && obSel.size >= 6) { cb.checked = false; $('obErr').textContent = 'Your building holds up to 6 repos.'; return; } cb.checked ? obSel.add(k) : obSel.delete(k); lab.classList.toggle('on', cb.checked); $('obErr').textContent = ''; });
       lab.appendChild(cb); lab.appendChild(document.createTextNode(rp.full)); lab.appendChild(el('small', null, (rp.desc || 'No description') + ' \u00b7 \u2605 ' + fmtN(rp.stars || 0)));
       list.appendChild(lab);
     });
@@ -744,9 +980,11 @@ $('obSave').addEventListener('click', async () => {
   try {
     const r = await fetch('/api/me', { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ cat: obPick, featured: [...obSel] }) });
     const d = await r.json(); if (!r.ok) throw new Error(d.error || 'HTTP ' + r.status);
-    ME.profile = d.profile; E.setMe(ME.profile.cat); closePanels(); renderAuth(); RT.start();
-    E.showToast('Welcome to GitWorld, ' + E.dnaName(ME.profile.cat) + '!', 2500);
-    loadFeatured();
+    const first = !ME.building; ME.profile = d.profile; if (d.building) ME.building = Object.assign(ME.building || {}, d.building); if (d.store) ME.store = d.store;
+    E.setMe(ME.profile.cat); closePanels(); renderAuth(); RT.start();
+    E.showToast((first ? 'Your building is up! ' : 'Building updated! ') + 'Welcome, ' + E.dnaName(ME.profile.cat) + '.', 3000);
+    await loadCity(false);
+    enterBuilding(ME.user.login, { push: true, welcome: true });
   } catch (e) { $('obErr').textContent = 'Could not save: ' + e.message; }
   $('obSave').disabled = false;
 });
@@ -882,7 +1120,7 @@ $('btnChat').addEventListener('click', () => { const cb = $('chatBar'); cb.class
 if (E.isTouch) $('chatBar').classList.add('collapsed');
 function renderLive(n) {
   const L = $('ghLive');
-  if (RT.on) L.textContent = '\u25cf ' + (RT.remote.size + 1) + ' here' + (RT.full ? ' (full)' : '');
+  if (RT.on) L.textContent = '\u25cf ' + (RT.remote.size + 1) + ' here' + (RT.full ? ' (full)' : '') + (ME.store === 'memory' ? ' \u00b7 DEMO' : '');
   else if (ME.user && !ME.rt) L.textContent = 'LIVE: SOON';
   else if (!ME.user) L.textContent = 'GUEST';
   else L.textContent = '';
@@ -895,6 +1133,7 @@ function openPlayerCard(ent) {
   $('pcAvatar').src = avatarUrl(ent.login); $('pcAvatar').referrerPolicy = 'no-referrer'; $('pcAvatar').alt = '';
   $('pcName').textContent = '@' + ent.login + (ent.cat && E.dnaName(ent.cat) ? ' · ' + E.dnaName(ent.cat) : '');
   $('pcLink').href = 'https://github.com/' + encodeURIComponent(ent.login); $('pcLink').textContent = 'github.com/' + ent.login;
+  $('pcVisit').classList.toggle('hidden', !CITY.byKey.has(ent.login.toLowerCase()));
   renderCard();
 }
 function renderCard() {
@@ -903,6 +1142,7 @@ function renderCard() {
   $('pcBlock').textContent = blocked.has(k) ? 'UNBLOCK' : 'BLOCK';
   $('pcNote').textContent = 'Mute hides their chat. Block hides their cat and chat for you. Report sends their name and this spot to the GitWorld moderators.';
 }
+$('pcVisit').addEventListener('click', () => { if (cardEnt) enterBuilding(cardEnt.login, { push: true }); });
 $('pcMute').addEventListener('click', () => { const k = cardEnt.login.toLowerCase(); muted.has(k) ? muted.delete(k) : muted.add(k); saveMB(); renderCard(); });
 $('pcBlock').addEventListener('click', () => { const k = cardEnt.login.toLowerCase(); if (blocked.has(k)) blocked.delete(k); else { blocked.add(k); RT.remote.delete(cardEnt.login); removeEnt(cardEnt); } saveMB(); renderCard(); });
 $('pcReport').addEventListener('click', async () => {
@@ -930,35 +1170,44 @@ window.GitWorld = {
     if (e.code === 'KeyG') { e.preventDefault(); openPicker(); return true; }
     if ((e.code === 'KeyT' || e.code === 'Slash') && RT.on) { e.preventDefault(); $('chatBar').classList.remove('collapsed'); $('chatInput').focus(); return true; }
     if (/^Digit[1-6]$/.test(e.code) && RT.on) { sendChat({ e: EMOTE_KEYS[+e.code.slice(5) - 1] }); return true; }
+    if (e.code === 'Backspace' && (cur.kind === 'city' || cur.kind === 'bld')) { e.preventDefault(); const b = E.world.targets.find(t => t.id === 'back'); if (b) b.act(); return true; }
     if (e.code === 'Backspace' && cur.kind === 'repo') { e.preventDefault(); const b = E.world.targets.find(t => t.id === 'back'); if (b) b.act(); return true; }
     return false;
   },
-  openPicker, enterRepo, enterHub, get state() { return { kind: cur.kind, repo: cur.repo && cur.repo.full, path: cur.path, page: cur.page, room: RT.room, rt: RT.on, players: [...RT.remote.keys()] }; }, RATE
+  openPicker, enterRepo, enterHub, enterCity, enterBuilding, get city() { return { total: CITY.total, store: CITY.store, logins: CITY.list.map(b => b.login), online: [...CITY.online] }; }, get state() { return { kind: cur.kind, repo: cur.repo && cur.repo.full, login: cur.login, path: cur.path, page: cur.page, room: RT.room, rt: RT.on, players: [...RT.remote.keys()] }; }, RATE
 };
 
 // ---------- URL routing: /?repo=owner/name&path=src&page=2&file=a.js and /gh/owner/name[/tree/branch/path] ----------
 function routeFromURL() {
   const q = new URLSearchParams(location.search);
+  const bm = /^\/b\/([^/?#]+)\/?$/.exec(location.pathname);
+  if (bm) { const l = decodeURIComponent(bm[1]); return { kind: 'bld', login: OWNER_RE.test(l) ? l : '' }; }
+  if (/^\/city\/?$/.test(location.pathname)) return { kind: 'city', page: Math.max(0, (parseInt(q.get('page'), 10) || 1) - 1) };
   let full = q.get('repo'), path = q.get('path') || '', page = Math.max(0, (parseInt(q.get('page'), 10) || 1) - 1), file = q.get('file') || '';
   const m = /^\/gh\/(.+)$/.exec(location.pathname);
   if (!full && m) { const p = parseRepoInput(decodeURIComponent(m[1])); if (p) { full = p.full; if (p.file) { file = p.path; path = dirName(p.path); } else path = p.path || safePath(decodeURIComponent(m[1]).split('/').slice(2).join('/')); } else full = decodeURIComponent(m[1]).split('/').slice(0, 2).join('/'); }
   if (full) { const p = parseRepoInput(full); if (p) { full = p.full; if (p.path && !path) path = p.path; } }
   file = safePath(file); if (file && !path) path = dirName(file);
-  return full ? { full, path: safePath(path), page, file } : null;
+  return full ? { kind: 'repo', full, path: safePath(path), page, file } : null;
 }
-addEventListener('popstate', () => { const r = routeFromURL(); hideSplash(); if (r) enterRepo(r.full, r.path, r.page, { file: r.file || undefined, from: (cur.kind === 'repo' && cur.path.startsWith(r.path ? r.path + '/' : '') && cur.path !== r.path) ? cur.path.split('/').slice(0, (r.path ? r.path.split('/').length : 0) + 1).join('/') : undefined }); else enterHub({}); });
+addEventListener('popstate', () => { const r = routeFromURL(); hideSplash(); if (r && r.kind === 'bld') enterBuilding(r.login); else if (r && r.kind === 'city') enterCity(r.page); else if (r) enterRepo(r.full, r.path, r.page, { file: r.file || undefined, from: (cur.kind === 'repo' && cur.path.startsWith(r.path ? r.path + '/' : '') && cur.path !== r.path) ? cur.path.split('/').slice(0, (r.path ? r.path.split('/').length : 0) + 1).join('/') : undefined }); else enterHub({}); });
 
 // ---------- boot ----------
 (async function boot() {
   const r = routeFromURL();
   enterHub({});
-  if (r) { if (location.pathname !== '/') { /* canonicalize /gh/ links once the repo loads */ } enterRepo(r.full, r.path, r.page, { push: false, file: r.file || undefined }); }
+  const cityP = loadCity(false);
+  if (r && r.kind === 'bld') enterBuilding(r.login, { push: false, welcome: true });
+  else if (r && r.kind === 'city') enterCity(r.page, { push: false });
+  else if (r) { enterRepo(r.full, r.path, r.page, { push: false, file: r.file || undefined }); }
   else showSplash();
   await loadMe();
+  if (ME.store === 'memory' && ME.user) E.showToast('Demo mode: the city database is not connected yet, so buildings may reset.', 4500);
   if (ME.user && ME.profile && ME.profile.cat) { E.setMe(ME.profile.cat); hideSplash(); }
   else if (ME.user) { hideSplash(); openOnboard(); }
   if (ME.user && !RT.on) RT.start();
-  if (cur.kind === 'hub') { const x = player.x, y = player.y, w = buildHub(); E.setWorld(w, x, y, player.dir); RT.reattach(); }
-  loadFeatured();
+  await cityP;
+  if (cur.kind === 'hub' || cur.kind === 'city') { const x = player.x, y = player.y, w = cur.kind === 'hub' ? buildHub() : buildCity(cur.page); E.setWorld(w, x, y, player.dir); RT.reattach(); }
+  else if (cur.kind === 'bld' && isMine(cur.login)) refreshInterior();
 })();
 })();

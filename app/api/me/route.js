@@ -1,16 +1,18 @@
 import { auth, authConfigured } from '../../../auth';
-import { redis } from '../../../lib/redis';
+import { redis, storeMode } from '../../../lib/redis';
+import { saveBuilding, getBuilding, recentWaves, MAX_REPOS } from '../../../lib/buildings';
 import { json, getUser, getProfile, sameOrigin, readJson, limit, validCat, profileCookie, userPublicRepos, isBanned } from '../../../lib/guard';
 
 export const dynamic = 'force-dynamic';
 
 export async function GET(req) {
-  const base = { auth: authConfigured, rt: authConfigured && !!redis, user: null, profile: null };
+  const base = { auth: authConfigured, rt: authConfigured && !!redis, store: storeMode, user: null, profile: null, building: null };
   if (!authConfigured) return json(base);
   const user = await getUser(req); if (!user) return json(base);
   let name = user.login; try { const s = await auth(); if (s && s.user && s.user.name) name = s.user.name; } catch (e) { /* */ }
   const profile = await getProfile(req, user);
-  return json({ ...base, user: { login: user.login, name }, profile: profile ? { cat: profile.cat, featured: profile.featured || [] } : null });
+  let building = null; try { building = await getBuilding(user.login); if (building) building.waves = await recentWaves(user.login); } catch (e) { /* */ }
+  return json({ ...base, user: { login: user.login, name }, profile: profile ? { cat: profile.cat, featured: profile.featured || [] } : null, building });
 }
 
 // Save your cat and the public repos you want to feature. Every repo is checked against your own public repo list.
@@ -22,7 +24,7 @@ export async function POST(req) {
   const body = await readJson(req); if (!body) return json({ error: 'Bad request.' }, 400);
   if (!validCat(body.cat)) return json({ error: 'Pick one of the cats.' }, 400);
   const want = Array.isArray(body.featured) ? [...new Set(body.featured.filter(x => typeof x === 'string').map(x => x.toLowerCase()))] : [];
-  if (want.length > 6) return json({ error: 'Feature at most 6 repos.' }, 400);
+  if (want.length > MAX_REPOS) return json({ error: 'Pick at most ' + MAX_REPOS + ' repos for your building.' }, 400);
   let feat = [];
   if (want.length) {
     let mine; try { mine = await userPublicRepos(user); } catch (e) { return json({ error: 'Could not check your repos with GitHub.' }, 502); }
@@ -31,14 +33,12 @@ export async function POST(req) {
   }
   const profile = { cat: body.cat, featured: feat.map(r => r.full) };
   const headers = { 'Set-Cookie': profileCookie(user, body.cat) };
-  if (redis) {
-    const now = Date.now();
-    const p = redis.pipeline().set('u:' + user.key, JSON.stringify({ ...profile, login: user.login, ts: now }));
-    if (feat.length) p.hset('feat', { [user.key]: JSON.stringify(feat.map(r => ({ full: r.full, desc: r.desc, stars: r.stars, lang: r.lang, by: user.login }))) }).zadd('featz', { score: now, member: user.key });
-    else p.hdel('feat', user.key).zrem('featz', user.key);
-    try { await p.exec(); } catch (e) { return json({ error: 'Could not save right now.' }, 503); }
-  } else if (feat.length) {
-    return json({ error: 'Your cat is saved, but featuring repos needs the GitWorld database, which is not switched on yet.', profile: { cat: body.cat, featured: [] } }, 503, headers);
-  }
-  return json({ ok: true, profile }, 200, headers);
+  // every profile gets a building in GitWorld City (even with no repos picked yet)
+  let name = user.login; try { const s = await auth(); if (s && s.user && s.user.name) name = s.user.name; } catch (e) { /* */ }
+  let building;
+  try {
+    await redis.set('u:' + user.key, JSON.stringify({ ...profile, login: user.login, ts: Date.now() }));
+    building = await saveBuilding(user, { name, cat: body.cat, repos: feat });
+  } catch (e) { return json({ error: 'Could not save right now.' }, 503); }
+  return json({ ok: true, profile, building, store: storeMode }, 200, headers);
 }

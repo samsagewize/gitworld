@@ -16,7 +16,7 @@ const CSP = [
 export default {
   poweredByHeader: false,
   async rewrites() {
-    return { beforeFiles: [{ source: '/', destination: '/index.html' }, { source: '/gh/:path*', destination: '/index.html' }] };
+    return { beforeFiles: [{ source: '/', destination: '/index.html' }, { source: '/gh/:path*', destination: '/index.html' }, { source: '/city', destination: '/index.html' }] };
   },
   async headers() {
     return [{ source: '/:path*', headers: [

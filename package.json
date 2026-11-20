@@ -4,7 +4,9 @@
   "private": true,
   "description": "Git it together at GitWorld",
   "scripts": {
+    "predev": "node tools/embed-index.mjs",
     "dev": "next dev",
+    "prebuild": "node tools/embed-index.mjs",
     "build": "next build",
     "start": "next start"
   },

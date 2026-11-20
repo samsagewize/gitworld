@@ -6,6 +6,8 @@
 
 GitWorld turns any public GitHub repo into a pixel town you can walk around as a cat. Folders are buildings, files are things you can open, the README is a sign out front, and other people walk around with you in real time.
 
+Sign in with GitHub and you get your own building in **GitWorld City**, filled with the public repos you pick. Share `/b/<your-login>` with friends: the link drops them right at your door. Every builder who joins adds another building and another cat.
+
 It is built from the engine, pixel style, and cat generator of [Rain's World](https://github.com/samsagewize/rain-world).
 
 ![GitWorld Plaza](docs/plaza.png)
@@ -21,8 +23,20 @@ It is built from the engine, pixel style, and cat generator of [Rain's World](ht
   - To go back, use the back portal, the breadcrumbs bar, Backspace or the browser's Back button.
 - **Multiplayer:** everyone in the same repo folder (the same "room") sees each other's cats live, with names over their heads, chat bubbles and emotes (wave, heart, star, meow, lol, ship it).
 - **Sign in with GitHub:**
-  - Guests can browse everything read-only. Joining the live world and chat requires signing in.
-  - First sign-in: choose one of 3 random cats made with the Rain's World cat generator, then pick up to 6 of your public repos to feature. They become buildings on **Featured Island** for everyone to visit.
+  - Guests can browse everything read-only, including the city and every building. Joining the live world, chat and waving require signing in.
+  - First sign-in: choose one of 3 random cats made with the Rain's World cat generator, then pick up to 6 of your public repos for your building. You land inside your new building with a share card. Change your picks any time from the sign-in kiosk or your building's owner sign.
+- **GitWorld City (`/city`):**
+  - Every profile is a building, on a grid that grows street by street (30 per street). Plots keep their place in join order.
+  - The facade shows the owner's GitHub avatar and their `@login`. A building glows while its owner is online.
+  - Empty "OPEN" plots invite newcomers to sign in and build.
+  - The plaza island has the city gate and the 6 newest buildings.
+- **Buildings (`/b/<login>`):**
+  - Inside: an owner sign, the owner's cat on a pedestal, one display stand per picked repo (card with description, stars and language, plus WALK IN to tour that repo as a town, or OPEN ON GITHUB), a visitor board and a wave bell.
+  - Visits count once per visitor every 6 hours, by signed-in login or a hashed IP. Owners don't count themselves.
+  - Waves: one per player per building per day. Waving also plays the wave emote for whoever is in the room, and the owner sees who waved on their visitor board.
+  - Each building is its own live room, so visitors see each other and the owner, and can chat and emote.
+  - Share links get per-building Open Graph and Twitter tags plus a generated 1200x630 preview image (`/api/og/<login>`).
+  - Player cards have a VISIT BUILDING button.
 - **Desktop and iPhone controls:**
   - Desktop: arrow keys/WASD to walk, E to interact, G opens the Gate, T or / to chat, 1–6 for emotes, Esc closes panels.
   - iPhone: tap to walk, plus a D-pad and an A button.
@@ -46,6 +60,8 @@ It is built from the engine, pixel style, and cat generator of [Rain's World](ht
 | `AUTH_GITHUB_SECRET` | Client secret of that OAuth App. |
 | `KV_REST_API_URL` / `KV_REST_API_TOKEN` | Upstash Redis REST URL and token (set automatically by the Vercel Upstash integration). `UPSTASH_REDIS_REST_URL` / `UPSTASH_REDIS_REST_TOKEN` work too. |
 
+Production callback URL for the GitHub OAuth App: `https://gitworld-gold.vercel.app/api/auth/callback/github`.
+
 GitHub OAuth App settings (GitHub → Settings → Developer settings → OAuth Apps → New):
 
 - Homepage URL: `https://<your-domain>`
@@ -53,9 +69,9 @@ GitHub OAuth App settings (GitHub → Settings → Developer settings → OAuth 
 
 What works without which variables:
 
-- **None set:** guest browsing works fully, straight from the browser to the public GitHub API, with caching.
-- **Auth set, no Redis:** sign-in and choosing a cat work (the cat is kept in an httpOnly cookie). Multiplayer, chat and featured repos stay off.
-- **Everything set:** the full live world.
+- **None set:** guest browsing works fully, straight from the browser to the public GitHub API, with caching. The city is visible but empty, and sign-in shows "switching on soon" (the feature flag is simply whether the three auth variables are set).
+- **Auth set, no Redis:** everything works on an in-memory **demo store** (`lib/redis.js`). It lives inside one server instance, so data resets on redeploy or cold start, and players on different instances may not see each other. The city shows a DEMO MODE sign and the live badge says DEMO.
+- **Everything set:** the full, always-on live world.
 
 ## Security model
 
@@ -80,6 +96,9 @@ What works without which variables:
   | Profile saves | 10/min |
   | Repo list | 20/min |
   | Reports | 5 per 10 min |
+  | Building visits | 40/min per IP |
+  | Waves | 30 per 10 min, 1 per building per day |
+  | City list / building reads | 90/min and 120/min per IP |
 
 - **Chat filter:**
   - 120 characters max; control and zero-width characters plus `<` and `>` are stripped.
@@ -105,6 +124,14 @@ npm run dev                  # http://localhost:3000
 
 For the local OAuth App, use the callback `http://localhost:3000/api/auth/callback/github`.
 
+## Data (Redis keys)
+
+- `u:<login>`: profile (cat and picked repos).
+- `bld`: a hash of building JSON. `bldz`: a zset of join times.
+- `bstats`: `<login>:v` visits and `<login>:w` waves. `bwl:<login>`: the last waves.
+- `online`: a zset of players seen in the last 30 s.
+- `rp:<room>` / `rc:<room>`: live players and chat, per room. Rooms are `hub`, `city|<street>`, `b|<login>` or `owner/repo|path|page`.
+
 ## Tests
 
 - `tools/test.js`: Playwright, desktop plus iPhone 13, in guest mode.
@@ -113,6 +140,8 @@ For the local OAuth App, use the callback `http://localhost:3000/api/auth/callba
   - GitHub responses are cached on disk so reruns cost no API quota.
 - `tools/mp-test.js`: two signed-in players against a local Redis, using `tools/upstash-shim.js` (an Upstash REST shim for a local `redis-server`) and `tools/mint.mjs` (test sessions signed with a throwaway local `AUTH_SECRET`).
   - Covers onboarding, seeing each other, chat sanitizing, emotes, per-folder rooms, report and block.
+
+- `tools/city-test.js`: GitWorld City end to end (guest city, buildings, repo cards, Back/Backspace, unknown links, two live players in one building, waves, onboarding a new builder, the city growing). It needs a local server started with a throwaway `AUTH_SECRET`, dummy `AUTH_GITHUB_ID` / `AUTH_GITHUB_SECRET`, and `NODE_OPTIONS="--require ./tools/fake-github.cjs"`, which fakes `/user/repos` for minted test sessions. It uses the in-memory store.
 
 ```bash
 BASE=http://localhost:3000 node tools/test.js

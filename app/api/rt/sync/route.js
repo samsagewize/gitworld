@@ -1,6 +1,6 @@
 import { redis } from '../../../../lib/redis';
 import { json, getUser, getProfile, sameOrigin, readJson, limit, isBanned } from '../../../../lib/guard';
-import { validRoom, roomKey, chatKey, SYNC_LUA, ROOM_CAP, STALE_MS } from '../../../../lib/rt';
+import { validRoom, roomKey, chatKey, SYNC_LUA, ROOM_CAP, STALE_MS, ONLINE_KEY } from '../../../../lib/rt';
 
 export const dynamic = 'force-dynamic';
 
@@ -17,7 +17,7 @@ export async function POST(req) {
   const now = Date.now();
   const state = JSON.stringify({ l: user.login, c: prof.cat, x, y, d, m, t: now });
   let res;
-  try { res = await redis.eval(SYNC_LUA, [roomKey(room), 'ul:' + user.key, chatKey(room)], [user.login, state, String(now), String(ROOM_CAP), String(STALE_MS), String(x), String(y)]); }
+  try { res = await redis.eval(SYNC_LUA, [roomKey(room), 'ul:' + user.key, chatKey(room), ONLINE_KEY], [user.login, state, String(now), String(ROOM_CAP), String(STALE_MS), String(x), String(y)]); }
   catch (e) { return json({ error: 'Live server hiccup.' }, 502); }
   const full = Number(res[0]) === 1;
   let players = [], chat = [];

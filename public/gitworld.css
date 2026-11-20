@@ -120,3 +120,7 @@ body.splash #hud,body.splash #pad,body.splash #btnA,body.splash #prompt,body.spl
 
 #obRepos{font-size:8px;line-height:1.6;color:#8a95b8}
 #onboard h2 span{word-break:break-all}
+.pcBtns #pcVisit{background:var(--acc);border-color:var(--acc)}
+#dlgLinks button{display:inline-block;font:inherit;font-size:9px;cursor:pointer;color:#0d1020;background:var(--mint);border:3px solid var(--ink);box-shadow:3px 3px 0 #000;padding:9px 10px;-webkit-appearance:none;appearance:none;border-radius:0}
+#dlgLinks button.alt{background:var(--ink)}
+#dlgLinks button:active{transform:translate(2px,2px);box-shadow:1px 1px 0 #000}
